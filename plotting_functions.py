@@ -35,7 +35,8 @@ def im_sq2hex(im_sq, mult=2):
                 # shift even rows half to right
                 col_index = mult * col + mult_2
 
-            im_hex[mult * row: mult * (row + 1), col_index: col_index + mult] = im_sq[row, col]
+            im_hex[mult * row: mult *
+                   (row + 1), col_index: col_index + mult] = im_sq[row, col]
 
     return im_hex
 
@@ -53,7 +54,8 @@ def square_upsample(im_sq, mult=2):
 
         for row in range(height):
             for col in range(width):
-                im_up[mult_h * row: mult_h * (row + 1), mult_w * col: mult_w * (col + 1)] = im_sq[row, col]
+                im_up[mult_h * row: mult_h *
+                      (row + 1), mult_w * col: mult_w * (col + 1)] = im_sq[row, col]
 
         return im_up
 
@@ -107,13 +109,15 @@ def square_plot(cell, width, name, maxmin=False, shiny=(), hexy='no', lims=False
 
         ax = plt.subplot(wid0, wid1, grid + 1)
 
-        cell_reshaped = cell_plot_prepare(cell_, width, hexy, smoothing, mult, mask)
+        cell_reshaped = cell_plot_prepare(
+            cell_, width, hexy, smoothing, mult, mask)
 
         if lims:
             ax.imshow(cell_reshaped, cmap=cmap, interpolation=interpolation_method, vmin=lims[0][grid],
                       vmax=lims[1][grid])
         else:
-            ax.imshow(cell_reshaped, cmap=cmap, interpolation=interpolation_method)
+            ax.imshow(cell_reshaped, cmap=cmap,
+                      interpolation=interpolation_method)
 
         if shiny is not None:
             shiny = list(shiny)
@@ -123,7 +127,8 @@ def square_plot(cell, width, name, maxmin=False, shiny=(), hexy='no', lims=False
                 x = shine % width
                 if hexy == 'hex':
                     x += 0.5 * (1 - np.mod(y, 2))
-                y, x = y * mult + (mult - 1) / 2, x * mult + (mult - 1) / 2  # plus 0.5 so center of 'mult square'
+                # plus 0.5 so center of 'mult square'
+                y, x = y * mult + (mult - 1) / 2, x * mult + (mult - 1) / 2
                 if hexy == 'hex':
                     y *= np.sqrt(3) / 2
                 ax.scatter(x, y, c='r', s=10)
@@ -159,7 +164,8 @@ def square_autocorr_plot(cell, width, name, show=True, hexy='no', smoothing=Fals
         ax = plt.subplot(wid, wid, grid + 1)
         cell_ = cell[:, grid]
 
-        cell_reshaped = cell_plot_prepare(cell_, width, hexy, smoothing, mult, False)
+        cell_reshaped = cell_plot_prepare(
+            cell_, width, hexy, smoothing, mult, False)
 
         y_, x_ = np.shape(cell_reshaped)
 
@@ -171,7 +177,8 @@ def square_autocorr_plot(cell, width, name, show=True, hexy='no', smoothing=Fals
             radius_sq = (3 / 4) * y_ ** 2
             for y in range(ys):
                 for x in range(xs):
-                    if (y - y_ + 1) ** 2 + (x - x_ + 1) ** 2 > radius_sq:  # 3/4 for hexagon sides closer at 30 degrees
+                    # 3/4 for hexagon sides closer at 30 degrees
+                    if (y - y_ + 1) ** 2 + (x - x_ + 1) ** 2 > radius_sq:
                         mask[y, x] = np.nan
             auto = auto * mask
             radius = np.sqrt(radius_sq)
@@ -196,11 +203,12 @@ def get_path(run, date, save_dirs, recent=-1):
         try:
             save_path = save_dir + date + '/run' + str(run) + '/save'
             list_of_files = listdir(save_path)
-            print('yes' + save_path)
+            print('yes ' + save_path)
 
             list_of_files_1 = [x for x in list_of_files if 'link' not in x]
 
-            a = [int(x.split('.')[0].split('_')[-1]) for x in list_of_files_1 if 'par' not in x and '.npy' in x]
+            a = [int(x.split('.')[0].split('_')[-1])
+                 for x in list_of_files_1 if 'par' not in x and '.npy' in x]
             a.sort()
 
             index = str(np.unique(a)[recent])
@@ -208,9 +216,34 @@ def get_path(run, date, save_dirs, recent=-1):
 
             return save_path, index, list_of_files
         except FileNotFoundError:
+            try:
+                os.mkdir(save_dir+date)
+            except FileExistsError:
+                print(save_dir+date, 'exists')
+            try:
+                os.mkdir(save_dir+date+'/run'+str(run))
+            except FileExistsError:
+                print(save_dir+date+'/run'+str(run), 'exists')
+            try:
+                os.mkdir(save_dir+date+'/run'+str(run)+'/save')
+            except FileExistsError:
+                print(save_dir+date+'/run'+str(run)+'/save', 'exists')
+
             save_path = save_dir + date + '/run' + str(run) + '/save'
-            print('not ' + save_path)
-            pass
+
+            list_of_files = listdir(save_path)
+            print('new ' + save_path)
+
+            list_of_files_1 = [x for x in list_of_files if 'link' not in x]
+
+            a = [int(x.split('.')[0].split('_')[-1])
+                 for x in list_of_files_1 if 'par' not in x and '.npy' in x]
+            a.sort()
+
+            index = str(np.unique(a)[recent])
+            print(index, len(np.unique(a)))
+
+            return save_path, index, list_of_files
 
     raise ValueError('FILE NOT FOUND')
 
@@ -258,8 +291,10 @@ def get_data(save_dirs, run, date, recent=-1):
     pos_timeseries = np.load(save_path + '/pos_timeseries_' + index + '.npy')
     timeseries = (g_timeseries, p_timeseries, pos_timeseries)
 
-    data = (a_rnn, g2g, x_all, g_all, p_all, p_gen_all, acc_s_t_to, acc_s_t_from, positions, shinys, adj, timeseries)
-    para = (params, widths, batch_id, g_size, p_size, s_size, s_size_comp, n_freq, width, states)
+    data = (a_rnn, g2g, x_all, g_all, p_all, p_gen_all, acc_s_t_to,
+            acc_s_t_from, positions, shinys, adj, timeseries)
+    para = (params, widths, batch_id, g_size, p_size,
+            s_size, s_size_comp, n_freq, width, states)
 
     return data, para, list_of_files, save_path
 
@@ -291,8 +326,10 @@ def sort_data(g_all, p_all, shinys, widths, mult, smoothing, params, batch_id, g
     p_smoothed = [[cell_plot_prepare(cell_, widths[batch_id[env]], params['world_type'], smoothing, mult,
                                      masks[env]).flatten() for cell_ in grid.T] for env, grid in enumerate(p_all)]
 
-    g_lim = [np.nanmin([np.nanmin(x, 1) for x in g_smoothed], 0), np.nanmax([np.nanmax(x, 1) for x in g_smoothed], 0)]
-    p_lim = [np.nanmin([np.nanmin(x, 1) for x in p_smoothed], 0), np.nanmax([np.nanmax(x, 1) for x in p_smoothed], 0)]
+    g_lim = [np.nanmin([np.nanmin(x, 1) for x in g_smoothed], 0), np.nanmax(
+        [np.nanmax(x, 1) for x in g_smoothed], 0)]
+    p_lim = [np.nanmin([np.nanmin(x, 1) for x in p_smoothed], 0), np.nanmax(
+        [np.nanmax(x, 1) for x in p_smoothed], 0)]
 
     return shinys_, masks, g_lim, p_lim
 

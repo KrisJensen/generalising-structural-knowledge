@@ -31,10 +31,14 @@ class BasicInfo:
             0, 0, 0, 0, 0, 0, 0, 0, 0
 
         self.mem_list_a, self.mem_list_b, self.mem_list_e, self.mem_list_f = [], [], [], []
-        self.mem_a = tf.zeros([self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
-        self.mem_b = tf.zeros([self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
-        self.mem_e = tf.zeros([self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
-        self.mem_f = tf.zeros([self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
+        self.mem_a = tf.zeros(
+            [self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
+        self.mem_b = tf.zeros(
+            [self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
+        self.mem_e = tf.zeros(
+            [self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
+        self.mem_f = tf.zeros(
+            [self.par['batch_size'], self.par['p_size'], 1], dtype=tf.float32)
         self.mem_list_a_s = [[] for _ in range(self.par['n_freq'])]
         self.mem_list_b_s = [[] for _ in range(self.par['n_freq'])]
         self.mem_list_e_s = [[] for _ in range(self.par['n_freq'])]
@@ -64,14 +68,16 @@ class BasicInfo:
                 tf.summary.histogram('histogram', var)
 
     def hierarchical_logsig(self, x, name, splits, sizes, trainable, concat, k=2):
-        xs = x if splits == 'done' else tf.split(value=x, num_or_size_splits=splits, axis=1)
+        xs = x if splits == 'done' else tf.split(
+            value=x, num_or_size_splits=splits, axis=1)
         xs = [tf.stop_gradient(x) for x in xs]
 
         logsigs_ = [fu_co(xs[i], k * sizes[i], activation_fn=tf.nn.elu, reuse=tf.AUTO_REUSE, scope=name + '_' + str(i),
                           weights_initializer=layer.xavier_initializer(),
                           trainable=trainable) for i in range(self.par['n_freq'])]
         logsigs = [self.par['logsig_ratio'] * fu_co(logsigs_[i], sizes[i], activation_fn=tf.nn.tanh,
-                                                    reuse=tf.AUTO_REUSE, scope=name + str(i),
+                                                    reuse=tf.AUTO_REUSE, scope=name +
+                                                    str(i),
                                                     weights_initializer=layer.xavier_initializer(),
                                                     trainable=trainable) for i in range(self.par['n_freq'])]
 
@@ -79,7 +85,8 @@ class BasicInfo:
 
     def hierarchical_mu(self, x, name, splits, sizes, concat, k=2):
         # this is just for p2g
-        xs = x if splits == 'done' else tf.split(value=x, num_or_size_splits=splits, axis=1)
+        xs = x if splits == 'done' else tf.split(
+            value=x, num_or_size_splits=splits, axis=1)
         mus_ = [fu_co(a, k * sizes[i], activation_fn=tf.nn.elu, reuse=tf.AUTO_REUSE, scope=name + '_' + str(i),
                       weights_initializer=layer.xavier_initializer()) for i, a in enumerate(xs)]
         mus = [fu_co(a, sizes[i], activation_fn=None, reuse=tf.AUTO_REUSE, scope=name + str(i),
@@ -88,13 +95,15 @@ class BasicInfo:
 
         return tf.concat(mus, axis=1) if concat else mus
 
-    def get_scaling_parameters(self, index):  # these should scale with gradient updates
+    # these should scale with gradient updates
+    def get_scaling_parameters(self, index):
         temp = tf.minimum((index + 1) / self.par['temp_it'], 1)
         forget = tf.minimum((index + 1) / self.par['forget_it'], 1)
         hebb_learn = tf.minimum((index + 1) / self.par['hebb_learn_it'], 1)
-        p2g_use = tf.sigmoid((index - self.par['p2g_use_it']) / self.par['p2g_scale'])  # from 0 to 1
+        p2g_use = tf.sigmoid(
+            (index - self.par['p2g_use_it']) / self.par['p2g_scale'])  # from 0 to 1
         l_r = (self.par['learning_rate_max'] - self.par['learning_rate_min']) * (self.par['l_r_decay_rate'] ** (
-                    index / self.par['l_r_decay_steps'])) + self.par['learning_rate_min']
+            index / self.par['l_r_decay_steps'])) + self.par['learning_rate_min']
         l_r = tf.maximum(l_r, self.par['learning_rate_min'])
         g_cell_reg = 1 - tf.minimum((index + 1) / self.par['g_reg_it'], 1)
         p_cell_reg = 1 - tf.minimum((index + 1) / self.par['p_reg_it'], 1)
@@ -105,10 +114,14 @@ class BasicInfo:
     def combine2_x2g(self, mu1, mu2, sigma1, sigma2):
         # mu2 needs to be the one coming from x
 
-        mus1 = tf.split(mu1, axis=1, num_or_size_splits=self.par['n_grids_all'])
-        mus2 = tf.split(mu2, axis=1, num_or_size_splits=self.par['n_grids_all'])
-        sigmas1 = tf.split(sigma1, axis=1, num_or_size_splits=self.par['n_grids_all'])
-        sigmas2 = tf.split(sigma2, axis=1, num_or_size_splits=self.par['n_grids_all'])
+        mus1 = tf.split(
+            mu1, axis=1, num_or_size_splits=self.par['n_grids_all'])
+        mus2 = tf.split(
+            mu2, axis=1, num_or_size_splits=self.par['n_grids_all'])
+        sigmas1 = tf.split(
+            sigma1, axis=1, num_or_size_splits=self.par['n_grids_all'])
+        sigmas2 = tf.split(
+            sigma2, axis=1, num_or_size_splits=self.par['n_grids_all'])
 
         mus, sigmas, logsigmas = [], [], []
         out_size = tf.shape(mu1)[1]
@@ -122,7 +135,8 @@ class BasicInfo:
                 logsigma_ = -0.5 * tf.log(inv_sigma_sq1 + inv_sigma_sq2)
                 sigma_ = tf.exp(logsigma_)
 
-                mu_ = tf.square(sigma_) * (m1 * inv_sigma_sq1 + m2 * inv_sigma_sq2)
+                mu_ = tf.square(sigma_) * \
+                    (m1 * inv_sigma_sq1 + m2 * inv_sigma_sq2)
             else:
                 mu_ = m1
                 sigma_ = s1
@@ -136,7 +150,8 @@ class BasicInfo:
         sigma = tf.concat(mus, axis=1)
         logsigma = tf.concat(mus, axis=1)
 
-        e = tf.random_normal((self.par['batch_size'], out_size), mean=0, stddev=1)
+        e = tf.random_normal(
+            (self.par['batch_size'], out_size), mean=0, stddev=1)
 
         return mu + sigma * e, mu, logsigma, sigma
 
@@ -153,14 +168,17 @@ class TEM(BasicInfo):
         self.A = hmat
         self.A_inv = hmat_inv
         # split into frequencies for hierarchical attractor - i.e. finish attractor early for low freq memories
-        self.A_split = tf.split(self.A, num_or_size_splits=self.par['n_place_all'], axis=2)
-        self.A_inv_split = tf.split(self.A_inv, num_or_size_splits=self.par['n_place_all'], axis=2)
+        self.A_split = tf.split(
+            self.A, num_or_size_splits=self.par['n_place_all'], axis=2)
+        self.A_inv_split = tf.split(
+            self.A_inv, num_or_size_splits=self.par['n_place_all'], axis=2)
 
         x_ = tf.split(axis=1, num_or_size_splits=self.par['n_freq'], value=x_)
 
         for i in range(self.par['seq_len']):
             self.seq_pos = seq_i * self.par['seq_len'] + i
-            if self.par['world_type'] in ['loop_laps']:  # increase cost for reward state in Sun et al task
+            # increase cost for reward state in Sun et al task
+            if self.par['world_type'] in ['loop_laps']:
                 self.x_mult = tf.cond(tf.equal(tf.floormod(self.seq_pos, self.par['n_states'][0]),
                                                self.par['reward_pos']), lambda: self.par['reward_value'], lambda: 1)
                 self.x_mult = tf.cast(self.x_mult, dtype=tf.float32)
@@ -171,7 +189,8 @@ class TEM(BasicInfo):
                 # book-keeping
                 self.weight_save = True if i == 1 else False
                 self.s_vis = s_vis[i]
-                g_t, x_t = (g, x_) if i == 0 else (self.g[i - 1], self.x_[i - 1])
+                g_t, x_t = (g, x_) if i == 0 else (
+                    self.g[i - 1], self.x_[i - 1])
 
                 # generative transition
                 with tf.name_scope('prev_t'):
@@ -179,7 +198,8 @@ class TEM(BasicInfo):
 
                 # infer hippocampus (p) and entorhinal (g)
                 with tf.name_scope('Inference'):
-                    g, p, x_s, p_x = self.inference(g2g_all, x[i], x_perf[i], x_t)
+                    g, p, x_s, p_x = self.inference(
+                        g2g_all, x[i], x_perf[i], x_t)
 
                 # generate sensory
                 with tf.name_scope('Generation'):
@@ -191,7 +211,8 @@ class TEM(BasicInfo):
 
             # compute losses
             with tf.name_scope('Losses'):
-                self.compute_losses(x[i], x_logits_all, g, p, g_gen, p_g, p_x, s_vis[i])
+                self.compute_losses(x[i], x_logits_all, g,
+                                    p, g_gen, p_g, p_x, s_vis[i])
 
             # compute accuracies
             with tf.name_scope('Accuracies'):
@@ -270,7 +291,8 @@ class TEM(BasicInfo):
 
             grads = optimizer.compute_gradients(cost_all)
 
-            capped_grads = [(tf.clip_by_norm(grad, 2), var) if grad is not None else (grad, var) for grad, var in grads]
+            capped_grads = [(tf.clip_by_norm(grad, 2), var) if grad is not None else (
+                grad, var) for grad, var in grads]
 
             self.train_op_all = optimizer.apply_gradients(capped_grads)
 
@@ -315,19 +337,23 @@ class TEM(BasicInfo):
             x_p_logits, x_g_logits, x_gt_logits = x_logits_all
 
             with tf.name_scope('lx_p'):
-                lx_p = sparse_softmax_cross_entropy_with_logits(x, x_p_logits) * self.x_mult
+                lx_p = sparse_softmax_cross_entropy_with_logits(
+                    x, x_p_logits) * self.x_mult
 
             with tf.name_scope('lx_g'):
-                lx_g = sparse_softmax_cross_entropy_with_logits(x, x_g_logits) * self.x_mult
+                lx_g = sparse_softmax_cross_entropy_with_logits(
+                    x, x_g_logits) * self.x_mult
 
             with tf.name_scope('lx_gt'):
-                lx_gt = sparse_softmax_cross_entropy_with_logits(x, x_gt_logits) * self.x_mult
+                lx_gt = sparse_softmax_cross_entropy_with_logits(
+                    x, x_gt_logits) * self.x_mult
 
             with tf.name_scope('lp'):
                 lp = squared_error(p, p_g)
 
             with tf.name_scope('lp_x'):
-                lp_x = squared_error(p, p_x) if 'lp_x' in self.par['which_costs'] else 0
+                lp_x = squared_error(
+                    p, p_x) if 'lp_x' in self.par['which_costs'] else 0
 
             with tf.name_scope('lg'):
                 lg = squared_error(g, g_gen)
@@ -337,7 +363,7 @@ class TEM(BasicInfo):
                 lg_reg = tf.add_n([tf.reduce_sum(z_g_ ** 2, 1) for i, z_g_ in
                                    enumerate(tf.split(g, axis=1, num_or_size_splits=self.par['n_grids_all'])) if
                                    not (i == self.par['ovc_module_num'] and self.par['ovc_module_use'] and
-                                   'shiny' in self.par['poss_behaviours'])])
+                                        'shiny' in self.par['poss_behaviours'])])
 
             with tf.name_scope('lp_reg'):
                 lp_reg = tf.reduce_sum(tf.abs(p), 1)
@@ -354,11 +380,15 @@ class TEM(BasicInfo):
             self.lx_gt += tf.reduce_sum(lx_gt * visited) / batch_vis
             self.lp += tf.reduce_sum(lp * visited) * self.temp / batch_vis
             self.lg += tf.reduce_sum(lg * visited) * self.temp / batch_vis
-            self.lp_x += tf.reduce_sum(lp_x * visited) * self.p2g_use * self.temp / batch_vis
+            self.lp_x += tf.reduce_sum(lp_x * visited) * \
+                self.p2g_use * self.temp / batch_vis
 
-            self.lg_reg += tf.reduce_sum(lg_reg * visited) * self.par['g_reg_pen'] * self.g_cell_reg / batch_vis
-            self.lp_reg += tf.reduce_sum(lp_reg * visited) * self.par['p_reg_pen'] * self.p_cell_reg / batch_vis
-            self.ovc_reg += tf.reduce_sum(ovc_reg * visited) * self.par['ovc_reg_pen'] * self.ovc_cell_reg / batch_vis
+            self.lg_reg += tf.reduce_sum(lg_reg * visited) * \
+                self.par['g_reg_pen'] * self.g_cell_reg / batch_vis
+            self.lp_reg += tf.reduce_sum(lp_reg * visited) * \
+                self.par['p_reg_pen'] * self.p_cell_reg / batch_vis
+            self.ovc_reg += tf.reduce_sum(ovc_reg * visited) * \
+                self.par['ovc_reg_pen'] * self.ovc_cell_reg / batch_vis
 
         return
 
@@ -372,9 +402,12 @@ class TEM(BasicInfo):
 
         # work out accuracy
         x_p, x_g, x_gt = x_all
-        self.accuracy_p += acc_tf(x, x_p) / self.par['seq_len']  # acc of inferred
-        self.accuracy_g += acc_tf(x, x_g) / self.par['seq_len']  # acc of generated
-        self.accuracy_gt += acc_tf(x, x_gt) / self.par['seq_len']  # acc of generated
+        self.accuracy_p += acc_tf(x, x_p) / \
+            self.par['seq_len']  # acc of inferred
+        self.accuracy_g += acc_tf(x, x_g) / \
+            self.par['seq_len']  # acc of generated
+        self.accuracy_gt += acc_tf(x, x_gt) / \
+            self.par['seq_len']  # acc of generated
 
         return
 
@@ -387,13 +420,17 @@ class TEM(BasicInfo):
         print('fin_hebb')
         for i_num, h_type in enumerate(self.par['hebb_type']):
             if i_num > 0:
-                self.A_inv += tf.matmul(self.mem_f, tf.transpose(self.mem_e, [0, 2, 1]))
+                self.A_inv += tf.matmul(self.mem_f,
+                                        tf.transpose(self.mem_e, [0, 2, 1]))
             else:
-                self.A += tf.matmul(self.mem_b, tf.transpose(self.mem_a, [0, 2, 1]))
+                self.A += tf.matmul(self.mem_b,
+                                    tf.transpose(self.mem_a, [0, 2, 1]))
 
         self.A = tf.multiply(self.A, self.mask)
-        self.A = tf.clip_by_value(self.A, -self.par['hebb_mat_max'], self.par['hebb_mat_max'])
-        self.A_inv = tf.clip_by_value(self.A_inv, -self.par['hebb_mat_max'], self.par['hebb_mat_max'])
+        self.A = tf.clip_by_value(
+            self.A, -self.par['hebb_mat_max'], self.par['hebb_mat_max'])
+        self.A_inv = tf.clip_by_value(
+            self.A_inv, -self.par['hebb_mat_max'], self.par['hebb_mat_max'])
         return
 
     # INFERENCE FUNCTIONS
@@ -413,7 +450,8 @@ class TEM(BasicInfo):
         # Inference - factorised posteriors
         if 'p' in self.par['infer_g_type']:
             mu_p2g, sigma_p2g, p_x = self.p2g(mu_x2p, x)
-            _, mu, _, sigma = combine2(mu, mu_p2g, sigma, sigma_p2g, self.par['batch_size'])
+            _, mu, _, sigma = combine2(
+                mu, mu_p2g, sigma, sigma_p2g, self.par['batch_size'])
 
         if 'x' in self.par['infer_g_type']:
             mu_x2g, sigma_x2g = self.x2g(x)
@@ -470,7 +508,8 @@ class TEM(BasicInfo):
             mu = self.f_g(mu)
 
             # logsig based on whether memory is a good one or not - based on length of retrieved memory
-            logsig_input = [tf.concat([tf.reduce_sum(x ** 2, keepdims=True, axis=1), err], axis=1) for x in mus]
+            logsig_input = [tf.concat(
+                [tf.reduce_sum(x ** 2, keepdims=True, axis=1), err], axis=1) for x in mus]
 
             logsigma = self.hierarchical_logsig(logsig_input, 'sig_p2g', 'done', self.par['n_grids_all'],
                                                 self.par['train_sig_p2g'], concat=True, k=2)
@@ -516,7 +555,8 @@ class TEM(BasicInfo):
 
                 logsigs[freq] = self.par['logsig_ratio'] * tf.layers.dense(x, g_size, activation=tf.nn.tanh,
                                                                            reuse=tf.AUTO_REUSE, use_bias=False,
-                                                                           name='sig_x2g' + str(freq),
+                                                                           name='sig_x2g' +
+                                                                           str(freq),
                                                                            kernel_initializer=tf.zeros_initializer,
                                                                            trainable=self.par['train_sig_x2g']) \
                     if cond else tf.zeros((self.par['batch_size'], g_size))
@@ -568,13 +608,15 @@ class TEM(BasicInfo):
         """
         with tf.name_scope('g2p'):
             # split into frequencies
-            gs = tf.split(value=g, num_or_size_splits=self.par['n_grids_all'], axis=1)
+            gs = tf.split(
+                value=g, num_or_size_splits=self.par['n_grids_all'], axis=1)
             # down-sampling - only take a subsection of grid cells
             gs_ = [tf.slice(ting, [0, 0], [self.par['batch_size'], self.par['n_phases_all'][freq]]) for freq, ting
                    in enumerate(gs)]
             g_ = tf.concat(gs_, axis=1)
             # repeat to get same dimension as hippocampus - same as applying W_repeat
-            g2p = tf_repeat_axis_1(g_, self.par['s_size_comp'], self.par['p_size'])
+            g2p = tf_repeat_axis_1(
+                g_, self.par['s_size_comp'], self.par['p_size'])
 
         return g2p
 
@@ -608,7 +650,7 @@ class TEM(BasicInfo):
                 with tf.variable_scope("x2x_" + str(i), reuse=tf.AUTO_REUSE):
                     gamma = tf.get_variable("w_smooth_freq", [1], initializer=tf.constant_initializer(
                         np.log(self.par['freqs'][i] / (1 - self.par['freqs'][i]))),
-                                            trainable=True)
+                        trainable=True)
                     # inverse sigmoid as initial parameters
                 a = tf.sigmoid(gamma)
 
@@ -632,7 +674,8 @@ class TEM(BasicInfo):
             for i in range(self.par['n_freq']):
 
                 with tf.variable_scope("x_2p" + str(i), reuse=tf.AUTO_REUSE):
-                    w_p = tf.get_variable("w_p", [1], initializer=tf.constant_initializer(1.0))
+                    w_p = tf.get_variable(
+                        "w_p", [1], initializer=tf.constant_initializer(1.0))
                 w_p = tf.sigmoid(w_p)
 
                 # tile to have appropriate size - same as W_tile
@@ -720,7 +763,8 @@ class TEM(BasicInfo):
                                              initializer=tf.truncated_normal_initializer(stddev=self.par['g_init'])),
                              [self.par['batch_size'], 1])
                 logsig = tf.tile(tf.get_variable("logsig_g_prior" + name, [1, self.par['g_size']],
-                                                 initializer=tf.truncated_normal_initializer(stddev=self.par['g_init'])
+                                                 initializer=tf.truncated_normal_initializer(
+                                                     stddev=self.par['g_init'])
                                                  ), [self.par['batch_size'], 1])
 
             sigma = tf.exp(logsig)
@@ -735,7 +779,8 @@ class TEM(BasicInfo):
         t_vec = tf.layers.dense(d_mixed, self.par['g_size'] ** 2, activation=None, reuse=tf.AUTO_REUSE,
                                 name='mu_g2g' + name, kernel_initializer=tf.zeros_initializer, use_bias=False)
         # turn vector into matrix
-        trans_all = tf.reshape(t_vec, [self.par['batch_size'], self.par['g_size'], self.par['g_size']])
+        trans_all = tf.reshape(
+            t_vec, [self.par['batch_size'], self.par['g_size'], self.par['g_size']])
         # apply mask - i.e. if hierarchically or only transition within frequency
         trans_all = tf.multiply(trans_all, self.mask_g)
 
@@ -751,10 +796,12 @@ class TEM(BasicInfo):
         if no_direc:
             # directionless transition weights - used in OVC environments
             with tf.variable_scope("g2g_directionless_weights" + name, reuse=tf.AUTO_REUSE):
-                t_mat_2 = tf.get_variable("g2g" + name, [self.par['g_size'], self.par['g_size']])
+                t_mat_2 = tf.get_variable(
+                    "g2g" + name, [self.par['g_size'], self.par['g_size']])
                 t_mat_2 = tf.multiply(t_mat_2, self.mask_g)
 
-            update = tf.where(self.no_direction > 0.5, x=tf.matmul(g_p, t_mat_2), y=update)
+            update = tf.where(self.no_direction > 0.5,
+                              x=tf.matmul(g_p, t_mat_2), y=update)
 
         return update
 
@@ -765,15 +812,18 @@ class TEM(BasicInfo):
         """
         with tf.name_scope('f_x_'):
 
-            ps = tf.split(value=p, num_or_size_splits=self.par['n_place_all'], axis=1)
+            ps = tf.split(
+                value=p, num_or_size_splits=self.par['n_place_all'], axis=1)
 
             # same as W_tile^T
             x_s = tf.reduce_sum(tf.reshape(ps[self.par['prediction_freq']], (self.par['batch_size'],
-                                self.par['n_phases_all'][self.par['prediction_freq']],  self.par['s_size_comp'])), 1)
+                                                                             self.par['n_phases_all'][self.par['prediction_freq']],  self.par['s_size_comp'])), 1)
 
             with tf.variable_scope("f_x", reuse=tf.AUTO_REUSE):
-                w_x = tf.get_variable("w_x", [1], initializer=tf.constant_initializer(1.0))
-                b_x = tf.get_variable("bias", [self.par['s_size_comp']], initializer=tf.constant_initializer(0.0))
+                w_x = tf.get_variable(
+                    "w_x", [1], initializer=tf.constant_initializer(1.0))
+                b_x = tf.get_variable(
+                    "bias", [self.par['s_size_comp']], initializer=tf.constant_initializer(0.0))
 
             x_logits = w_x * x_s + b_x
             # decompress sensory
@@ -793,7 +843,8 @@ class TEM(BasicInfo):
         with tf.name_scope("f_decompress"):
             x_hidden = fu_co(x_compressed, self.par['s_size_comp_hidden'], activation_fn=tf.nn.elu, reuse=tf.AUTO_REUSE,
                              scope='f_decompress_1')
-            x = fu_co(x_hidden, self.par['s_size'], activation_fn=None, reuse=tf.AUTO_REUSE, scope='f_decompress_2')
+            x = fu_co(x_hidden, self.par['s_size'], activation_fn=None,
+                      reuse=tf.AUTO_REUSE, scope='f_decompress_2')
 
         return x
 
@@ -818,12 +869,15 @@ class TEM(BasicInfo):
 
             for i in range(self.par['n_recurs']):
                 # get Hebbian update
-                update = self.hebb_scal_prod(ps[i], i, which_way, hebb_diff_freq_its_max)
+                update = self.hebb_scal_prod(
+                    ps[i], i, which_way, hebb_diff_freq_its_max)
 
-                ps_f = tf.split(value=ps[i], num_or_size_splits=self.par['n_place_all'], axis=1)
+                ps_f = tf.split(
+                    value=ps[i], num_or_size_splits=self.par['n_place_all'], axis=1)
                 for f in range(self.par['n_freq']):
                     if i < hebb_diff_freq_its_max[f]:
-                        ps_f[f] = self.par['p_activation'](self.par['prev_p_decay'] * ps_f[f] + update[f])
+                        ps_f[f] = self.par['p_activation'](
+                            self.par['prev_p_decay'] * ps_f[f] + update[f])
                 ps[i + 1] = tf.concat(ps_f, axis=1)
 
             p = ps[-1]
@@ -855,7 +909,8 @@ class TEM(BasicInfo):
         with tf.name_scope('hebb_scal_prod'):
 
             p_ = tf.transpose(tf.expand_dims(p, axis=2), [0, 2, 1])
-            ps = tf.split(value=p, num_or_size_splits=self.par['n_place_all'], axis=1)
+            ps = tf.split(
+                value=p, num_or_size_splits=self.par['n_place_all'], axis=1)
 
             updates = [0] * self.par['n_freq']
             updates_poss = self.hebb_scal_prod_helper(a, b, ps, r_f_f)
@@ -885,12 +940,15 @@ class TEM(BasicInfo):
             # pre-calculate scalar prods for each freq:
             for freq in range(self.par['n_freq']):
                 p_freq = tf.expand_dims(ps[freq], 2)
-                scal_prods.append(tf.matmul(tf.transpose(b[freq], [0, 2, 1]), p_freq))
+                scal_prods.append(
+                    tf.matmul(tf.transpose(b[freq], [0, 2, 1]), p_freq))
 
-            for freq in range(self.par['n_freq']):  # go downwards - more computationally efficient
+            # go downwards - more computationally efficient
+            for freq in range(self.par['n_freq']):
 
                 scal_prod = []
-                for f in range(self.par['n_freq']):  # which freqs influence which other freqs
+                # which freqs influence which other freqs
+                for f in range(self.par['n_freq']):
 
                     if r_f_f[f][freq] > 0:
 
@@ -934,10 +992,12 @@ class TEM(BasicInfo):
                                                                                                self.mem_list_f_s)
             # 'forget' the Hebbian matrices
             self.A = self.A * self.forget * self.par['lambd']
-            self.A_split = tf.split(self.A, num_or_size_splits=self.par['n_place_all'], axis=2)
+            self.A_split = tf.split(
+                self.A, num_or_size_splits=self.par['n_place_all'], axis=2)
 
             self.A_inv = self.A_inv * self.forget * self.par['lambd']
-            self.A_inv_split = tf.split(self.A_inv, num_or_size_splits=self.par['n_place_all'], axis=2)
+            self.A_inv_split = tf.split(
+                self.A_inv, num_or_size_splits=self.par['n_place_all'], axis=2)
 
         return
 
@@ -953,7 +1013,8 @@ class TEM(BasicInfo):
         with tf.name_scope('mem_update'):
 
             # sqrt as they are multiplied by themselves
-            mem_list.append(tf.multiply(tf.sqrt(self.par['eta'] * self.h_l), mem))
+            mem_list.append(tf.multiply(
+                tf.sqrt(self.par['eta'] * self.h_l), mem))
             for i, el in enumerate(mem_list):
                 if i < len(mem_list) - 1:
                     mem_list[i] = el * tf.sqrt(self.forget * self.par['lambd'])
@@ -961,12 +1022,15 @@ class TEM(BasicInfo):
 
             # doing it for hierarchy
             mems_s = []
-            mem_s = tf.split(value=mem, num_or_size_splits=self.par['n_place_all'], axis=1)
+            mem_s = tf.split(
+                value=mem, num_or_size_splits=self.par['n_place_all'], axis=1)
             for i in range(self.par['n_freq']):
-                mem_list_s[i].append(tf.multiply(tf.sqrt(self.par['eta'] * self.h_l), mem_s[i]))
+                mem_list_s[i].append(tf.multiply(
+                    tf.sqrt(self.par['eta'] * self.h_l), mem_s[i]))
                 for j, el in enumerate(mem_list_s[i]):
                     if j < len(mem_list_s[i]) - 1:
-                        mem_list_s[i][j] = el * tf.sqrt(self.forget * self.par['lambd'])
+                        mem_list_s[i][j] = el * \
+                            tf.sqrt(self.forget * self.par['lambd'])
                 mems_s.append(tf.stack(mem_list_s[i], axis=2))
 
         return mems, mems_s, mem_list, mem_list_s
@@ -981,7 +1045,8 @@ class TEM(BasicInfo):
                 with tf.variable_scope("f_n" + str(i), reuse=tf.AUTO_REUSE):
                     x_normed[i] = x[i]
                     # subtract mean and threshold
-                    x_normed[i] = tf.maximum(x_normed[i] - tf.reduce_mean(x_normed[i], axis=1, keepdims=True), 0)
+                    x_normed[i] = tf.maximum(
+                        x_normed[i] - tf.reduce_mean(x_normed[i], axis=1, keepdims=True), 0)
                     # l2 normalise
                     x_normed[i] = tf.nn.l2_normalize(x_normed[i], axis=1)
 
@@ -989,7 +1054,8 @@ class TEM(BasicInfo):
 
     def f_g(self, g):
         with tf.name_scope('f_g'):
-            gs = tf.split(value=g, num_or_size_splits=self.par['n_grids_all'], axis=1)
+            gs = tf.split(
+                value=g, num_or_size_splits=self.par['n_grids_all'], axis=1)
             for i in range(self.par['n_freq']):
                 # apply activation to each frequency separately
                 gs[i] = self.f_g_freq(gs[i], i)

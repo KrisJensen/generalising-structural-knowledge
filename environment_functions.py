@@ -30,7 +30,8 @@ def make_environments(par):
         elif par['world_type'] == 'family_tree':
             adj, tran = family_tree_world(levels=width)
         elif par['world_type'] == 'line_ti':
-            adj, tran = line_ti_world(length=width, jump_length=par['jump_length'][env])
+            adj, tran = line_ti_world(
+                length=width, jump_length=par['jump_length'][env])
         elif par['world_type'] == 'loop_laps':
             adj, tran = loop_laps_world(width, par['n_laps'], stay_still=False)
         else:
@@ -39,7 +40,8 @@ def make_environments(par):
         adjs.append(adj)
         trans.append(tran)
 
-        states_mat[env], shiny_states[env] = torus_state_data(n_senses, adj, env, par)
+        states_mat[env], shiny_states[env] = torus_state_data(
+            n_senses, adj, env, par)
 
     return adjs, trans, states_mat, shiny_states
 
@@ -54,7 +56,8 @@ def get_new_data_diff_envs(position, data_envs, envs, states_mat, params):
     for batch in range(b_s):
         env = envs[batch]
 
-        data[batch] = sample_data(position[batch, :], states_mat[env], n_senses, data_envs[batch])
+        data[batch] = sample_data(
+            position[batch, :], states_mat[env], n_senses, data_envs[batch])
 
     return data
 
@@ -74,7 +77,8 @@ def sample_data(position, states_mat, n_senses, last_data):
 def get_walking_data(start_state, adj, tran, prev_d, shiny_states, n_walk, params):
     b_s = int(params['batch_size'])
 
-    pos, d = np.zeros((b_s, n_walk + 1)), np.zeros((b_s, params['n_actions'], n_walk))
+    pos, d = np.zeros((b_s, n_walk + 1)), np.zeros((b_s,
+                                                    params['n_actions'], n_walk))
 
     for b in range(b_s):
         env = params['diff_env_batches_envs'][b]
@@ -87,7 +91,8 @@ def get_walking_data(start_state, adj, tran, prev_d, shiny_states, n_walk, param
             pos[b, :], d[b, :, :], prev_d[b] = walk_hex(adj[env], tran[env], n_walk, start_state[b], prev_d[b], s_s,
                                                         env, params)
         elif params['world_type'] == 'family_tree':
-            pos[b, :], d[b, :, :], prev_d[b] = walk_family_tree(adj[env], tran[env], n_walk, start_state[b], prev_d[b])
+            pos[b, :], d[b, :, :], prev_d[b] = walk_family_tree(
+                adj[env], tran[env], n_walk, start_state[b], prev_d[b])
         elif params['world_type'] == 'line_ti':
             pos[b, :], d[b, :, :], prev_d[b] = walk_line_ti(adj[env], tran[env], n_walk, start_state[b], prev_d[b],
                                                             env, params)
@@ -107,7 +112,8 @@ def curriculum(pars_orig, pars, n_restart):
     # choose between shiny / normal
 
     rn = np.random.randint(low=-pars['seq_jitter'], high=pars['seq_jitter'])
-    n_restart = np.maximum(n_restart - pars['curriculum_steps'], pars['restart_min'])
+    n_restart = np.maximum(
+        n_restart - pars['curriculum_steps'], pars['restart_min'])
 
     pars['shiny_bias_env'] = [(0, 0) for _ in range(n_envs)]
     pars['direc_bias_env'] = [0 for _ in range(n_envs)]
@@ -167,7 +173,8 @@ def torus_state_data(n_senses, adj, env, par):
         while len(shiny_states) < 2:
             shiny_states = []
             # choose shiny state so not on boundary
-            allowed_states = [x for x in range(n_states) if np.sum(adj, 0)[x] == np.max(np.sum(adj, 0))]
+            allowed_states = [x for x in range(n_states) if np.sum(adj, 0)[
+                x] == np.max(np.sum(adj, 0))]
 
             for i in range(len(shiny_sense)):
                 # choose shiny position
@@ -203,7 +210,8 @@ def torus_state_data(n_senses, adj, env, par):
             new_state = np.random.choice(choices)
             len_loop = int(n_states / par['n_laps'])
 
-            states_vec[i, 0] = new_state if i / len_loop < 1 else states_vec[i - len_loop, 0]
+            states_vec[i, 0] = new_state if i / \
+                len_loop < 1 else states_vec[i - len_loop, 0]
 
         else:
             # choose which sense goes where
@@ -250,6 +258,46 @@ def square_world(width, stay_still):
             adj[i + width, i] = 1
             # left - right
         if np.mod(i, width) != 0:
+            adj[i, i - 1] = 1
+            adj[i - 1, i] = 1
+
+    tran = np.zeros((states, states))
+    for i in range(states):
+        if sum(adj[i]) > 0:
+            tran[i] = adj[i] / sum(adj[i])
+
+    return adj, tran
+
+
+def torus_world(width, stay_still):
+    """
+        #state number counts accross then down
+        a = np.asarray(range(25))
+        print(a)
+        print(np.reshape(a,(5,5)))
+        [ 0  1  2  3  4  5  6  7  8  9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24]
+        [[ 0  1  2  3  4]
+         [ 5  6  7  8  9]
+         [10 11 12 13 14]
+         [15 16 17 18 19]
+         [20 21 22 23 24]]
+    """
+    states = int(width ** 2)
+    adj = np.zeros((states, states))
+
+    for i in range(states):
+        # stay still
+        if stay_still:
+            adj[i, i] = 1
+        # up - down
+        if i + width < states:
+            adj[i, (i + width) % width**2] = 1
+            adj[(i + width) % width**2, i] = 1
+            # left - right
+        if np.mod(i, width) == 0:
+            adj[i, i+width-1] = 1
+            adj[i+width-1, i] = 1
+        else:
             adj[i, i - 1] = 1
             adj[i - 1, i] = 1
 
@@ -632,7 +680,8 @@ def walk_square(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, 
     if params['world_type'] == 'rectangle':
         height, wid = params['heights'][env], params['widths'][env]
         if height * wid != len(adj):
-            raise ValueError('incorrect heigh/width : height * width not equal to number of states')
+            raise ValueError(
+                'incorrect heigh/width : height * width not equal to number of states')
     else:
         height, wid = width, width
 
@@ -641,7 +690,8 @@ def walk_square(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, 
         # object want to go to
         shiny_s_ind = np.random.choice(np.arange(len(shiny_state)))
         shiny_b = [shiny_s_ind, shiny_state[shiny_s_ind], 0]
-        rn = np.random.randint(params['object_hang_min'], params['object_hang_max'])
+        rn = np.random.randint(
+            params['object_hang_min'], params['object_hang_max'])
 
     position[0, 0] = int(start_state)
     for i in range(time_steps):
@@ -653,11 +703,14 @@ def walk_square(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, 
             # choose new object to go to
             if shiny_b[2] > rn:
                 try:
-                    shiny_s_ind = np.random.choice([x for x in range(len(shiny_state)) if x != shiny_s_ind])
+                    shiny_s_ind = np.random.choice(
+                        [x for x in range(len(shiny_state)) if x != shiny_s_ind])
                 except ValueError:
-                    shiny_s_ind = np.random.choice([x for x in range(len(shiny_state))])
+                    shiny_s_ind = np.random.choice(
+                        [x for x in range(len(shiny_state))])
                 shiny_b = [shiny_s_ind, shiny_state[shiny_s_ind], 0]
-                rn = np.random.randint(params['object_hang_min'], params['object_hang_max'])
+                rn = np.random.randint(
+                    params['object_hang_min'], params['object_hang_max'])
             # visited current shiny
             if position[0, i] == shiny_b[1]:
                 shiny_b[2] += 1
@@ -673,15 +726,18 @@ def walk_square(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, 
 
             # bias to current object of choice
             g = np.zeros_like(available).astype(np.float32)
-            min_dis_ind = np.random.choice(np.where(distances == min(distances))[0])
+            min_dis_ind = np.random.choice(
+                np.where(distances == min(distances))[0])
             g[min_dis_ind] = 1
 
-            p = (sb_min * g) + (1 - sb_min - sb_max) * tran[int(position[0, i]), available] + sb_max * np.asarray(ps)
+            p = (sb_min * g) + (1 - sb_min - sb_max) * \
+                tran[int(position[0, i]), available] + sb_max * np.asarray(ps)
 
             # Staying still should always occur a certain proportion of time of time
             stay_still_pos = np.where(available == int(position[0, i]))[0]
             if len(stay_still_pos) > 0:
-                p = (1 - params['object_stay_still']) * p / sum(p[np.arange(len(p)) != stay_still_pos[0]])
+                p = (1 - params['object_stay_still']) * p / \
+                    sum(p[np.arange(len(p)) != stay_still_pos[0]])
                 p[stay_still_pos[0]] = params['object_stay_still']
             new_poss_pos = np.random.choice(available, p=p)
         elif params['bias_type'] == 'angle':
@@ -695,7 +751,8 @@ def walk_square(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, 
         else:
             position[0, i + 1] = int(cp.deepcopy(position[0, i]))
 
-        prev_dir, _ = rectangle_relation(position[0, i], position[0, i + 1], wid, height)
+        prev_dir, _ = rectangle_relation(
+            position[0, i], position[0, i + 1], wid, height)
         if prev_dir < 4:
             direc[prev_dir, i] = 1
         # stay still is just a set of zeros
@@ -734,7 +791,8 @@ def walk_hex(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, par
         # object want to go to
         shiny_s_ind = np.random.choice(np.arange(len(shiny_state)))
         shiny_b = [shiny_s_ind, shiny_state[shiny_s_ind], 0]
-        rn = np.random.randint(params['object_hang_min'], params['object_hang_max'])
+        rn = np.random.randint(
+            params['object_hang_min'], params['object_hang_max'])
 
     position[0, 0] = int(start_state)
     for i in range(time_steps):
@@ -747,9 +805,11 @@ def walk_hex(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, par
 
             # choose new object to go to
             if shiny_b[2] > rn:
-                shiny_s_ind = np.random.choice([x for x in range(len(shiny_state)) if x != shiny_s_ind])
+                shiny_s_ind = np.random.choice(
+                    [x for x in range(len(shiny_state)) if x != shiny_s_ind])
                 shiny_b = [shiny_s_ind, shiny_state[shiny_s_ind], 0]
-                rn = np.random.randint(params['object_hang_min'], params['object_hang_max'])
+                rn = np.random.randint(
+                    params['object_hang_min'], params['object_hang_max'])
             # visited current shiny
             if position[0, i] == shiny_b[1]:
                 shiny_b[2] += 1
@@ -765,15 +825,18 @@ def walk_hex(adj, tran, time_steps, start_state, prev_dir, shiny_state, env, par
 
             # bias to currently object of choice
             g = np.zeros_like(available).astype(np.float32)
-            min_dis_ind = np.random.choice(np.where(distances[shiny_b[0]] == min(distances[shiny_b[0]]))[0])
+            min_dis_ind = np.random.choice(
+                np.where(distances[shiny_b[0]] == min(distances[shiny_b[0]]))[0])
             g[min_dis_ind] = 1
 
-            p = (sb_min * g) + (1 - sb_min - sb_max) * tran[int(position[0, i]), available] + sb_max * np.asarray(ps)
+            p = (sb_min * g) + (1 - sb_min - sb_max) * \
+                tran[int(position[0, i]), available] + sb_max * np.asarray(ps)
 
             # Staying still should always occur a certain proportion of time of time
             stay_still_pos = np.where(available == int(position[0, i]))[0]
             if len(stay_still_pos) > 0:
-                p = (1 - params['object_stay_still']) * p / sum(p[np.arange(len(p)) != stay_still_pos[0]])
+                p = (1 - params['object_stay_still']) * p / \
+                    sum(p[np.arange(len(p)) != stay_still_pos[0]])
                 p[stay_still_pos[0]] = params['object_stay_still']
             new_poss_pos = np.random.choice(available, p=p)
 
@@ -803,7 +866,8 @@ def walk_family_tree(adj, tran, time_steps, start_state, prev_dir):
     position[0, 0] = int(start_state)
     for i in range(time_steps):
         available = np.where(tran[int(position[0, i]), :] > 0)[0].astype(int)
-        p = tran[int(position[0, i]), available]  # choose next position from actual allowed positions
+        # choose next position from actual allowed positions
+        p = tran[int(position[0, i]), available]
         new_poss_pos = np.random.choice(available, p=p)
 
         if adj[position[0, i], new_poss_pos] == 1:
@@ -811,7 +875,8 @@ def walk_family_tree(adj, tran, time_steps, start_state, prev_dir):
         else:
             position[0, i + 1] = int(cp.deepcopy(position[0, i]))
 
-        rel_type, rel_index = family_relation_type(position[0, i], position[0, i + 1])
+        rel_type, rel_index = family_relation_type(
+            position[0, i], position[0, i + 1])
 
         direc[rel_index, i] = 1
         prev_dir = rel_index
@@ -826,7 +891,8 @@ def walk_line_ti(adj, tran, time_steps, start_state, prev_dir, env, params):
     position[0, 0] = int(start_state)
     for i in range(time_steps):
         available = np.where(tran[int(position[0, i]), :] > 0)[0].astype(int)
-        p = tran[int(position[0, i]), available]  # choose next position from actual allowed positions
+        # choose next position from actual allowed positions
+        p = tran[int(position[0, i]), available]
         new_poss_pos = np.random.choice(available, p=p)
 
         if adj[position[0, i], new_poss_pos] == 1:
@@ -834,7 +900,8 @@ def walk_line_ti(adj, tran, time_steps, start_state, prev_dir, env, params):
         else:
             position[0, i + 1] = int(cp.deepcopy(position[0, i]))
 
-        d_, num_, direc_exact_ = line_ti_relation(position[0, i], position[0, i + 1], params['jump_length'][env])
+        d_, num_, direc_exact_ = line_ti_relation(
+            position[0, i], position[0, i + 1], params['jump_length'][env])
 
         direc[0, i] = d_
         direc[1, i] = num_
@@ -852,7 +919,8 @@ def walk_loop_laps(adj, tran, time_steps, start_state, prev_dir, params):
     position[0, 0] = int(start_state)
     for i in range(time_steps):
         available = np.where(tran[int(position[0, i]), :] > 0)[0].astype(int)
-        p = tran[int(position[0, i]), available]  # choose next position from actual allowed positions
+        # choose next position from actual allowed positions
+        p = tran[int(position[0, i]), available]
         new_poss_pos = np.random.choice(available, p=p)
 
         if adj[position[0, i], new_poss_pos] == 1:
@@ -860,7 +928,8 @@ def walk_loop_laps(adj, tran, time_steps, start_state, prev_dir, params):
         else:
             position[0, i + 1] = int(cp.deepcopy(position[0, i]))
 
-        rel_type, rel_index = loop_laps_relation_type(position[0, i], position[0, i + 1], width, params['n_laps'])
+        rel_type, rel_index = loop_laps_relation_type(
+            position[0, i], position[0, i + 1], width, params['n_laps'])
 
         direc[rel_index, i] = 1
         prev_dir = rel_index
@@ -877,7 +946,8 @@ def move_straight_bias(current_angle, position, width, available, tran, params):
     else:
         angle_checker = angle_between_states_hex
         diff_angle_min = np.pi / 6
-    angles = [angle_checker(position, x, width) if x != position else 10000 for x in available]
+    angles = [angle_checker(position, x, width) if x !=
+              position else 10000 for x in available]
     # find angle closest to current angle
     a_diffs = [np.abs(a - current_angle) for a in angles]
     a_diffs = [a if a < np.pi else np.abs(2 * np.pi - a) for a in a_diffs]
@@ -889,12 +959,14 @@ def move_straight_bias(current_angle, position, width, available, tran, params):
         angle = current_angle
     else:  # hit a wall - then do random non stationary choice
         p_angles = [1 if a < 100 else 0.000001 for a in angles]
-        a_min_index = np.random.choice(np.arange(len(available)), p=np.asarray(p_angles) / sum(p_angles))
+        a_min_index = np.random.choice(
+            np.arange(len(available)), p=np.asarray(p_angles) / sum(p_angles))
         angle = angles[a_min_index]
 
     new_poss_pos = int(available[a_min_index])
 
-    angle += np.random.uniform(-params['angle_bias_change'], params['angle_bias_change'])
+    angle += np.random.uniform(-params['angle_bias_change'],
+                               params['angle_bias_change'])
     angle = np.mod(angle + np.pi, 2 * np.pi) - np.pi  # keep between +- pi
 
     if np.random.rand() > params['direc_bias']:
